@@ -1,0 +1,253 @@
+#!/bin/bash
+
+#Colours
+greenColour="\e[0;32m\033[1m"
+endColour="\033[0m\e[0m"
+redColour="\e[0;31m\033[1m"
+blueColour="\e[0;34m\033[1m"
+yellowColour="\e[0;33m\033[1m"
+purpleColour="\e[0;35m\033[1m"
+turquoiseColour="\e[0;36m\033[1m"
+grayColour="\e[0;37m\033[1m"
+
+
+trap ctrl_c INT
+
+function ctrl_c(){
+		echo -e "\n{$blueColour}[*]${endColour}${grayColour}saliendo...${endColour}"
+		tput cnorm; exit 0
+}
+
+function Help(){
+	echo -e "\n${blueColour}[*]${endColour}${grayColour}Uso: ./rec0n.sh${endColour}${redColour} -d domain ${endColour}"
+	exit 0
+}
+
+function installaquatone(){
+
+wget https://github.com/michenriksen/aquatone/releases/download/v1.7.0/aquatone_linux_amd64_1.7.0.zip
+unzip aquatone_linux_amd64_1.7.0.zip
+mv aquatone /usr/bin/aquatone
+rm LICENSE.txt README.md aquatone_linux_amd64_1.7.0.zip
+
+}
+
+function installassetfinder(){
+
+wget https://github.com/tomnomnom/assetfinder/releases/download/v0.1.0/assetfinder-linux-amd64-0.1.0.tgz
+
+tar xzvf assetfinder-linux-amd64-0.1.0.tgz
+
+mv assetfinder /usr/bin/assetfinder
+
+rm assetfinder-linux-amd64-0.1.0.tgz
+
+}
+
+function installsubfinder(){
+
+wget https://github.com/projectdiscovery/subfinder/releases/download/v2.3.2/subfinder-linux-amd64.tar
+
+tar -xzvf subfinder-linux-amd64.tar
+
+mv subfinder-linux-amd64 /usr/bin/subfinder
+
+rm subfinder-linux-amd64.tar
+
+}
+
+function installfindomain(){
+
+wget https://github.com/Edu4rdSHL/findomain/releases/latest/download/findomain-linux
+mv findomain-linux /usr/bin/findomain
+
+}
+
+function installhttprobe(){
+
+wget https://github.com/tomnomnom/httprobe/releases/download/v0.1.2/httprobe-linux-amd64-0.1.2.tgz
+tar xzvf httprobe-linux-amd64-0.1.2.tgz
+mv httprobe /usr/bin/httprobe
+rm httprobe-linux-amd64-0.1.2.tgz
+
+}
+
+
+function dependencies(){
+	tput civis
+	clear;dependencies=( aquatone assetfinder subfinder findomain httprobe )
+
+	echo -e "${blueColour}[*]${endColour}${grayColour} Comprobando programas necesarios...${endColour}"
+	sleep 1
+
+	for program in "${dependencies[@]}"; do
+		echo -ne "\n${blueColour}[*]${endColour}${grayColour} Herramienta${endColour}${redColour} $program${endColour}${grayColour}.....${endColour}"
+
+ 		test -f /usr/bin/$program
+
+		if [ "$(echo $?)" == "1000" ]; then 
+			echo -e  "${greenColour}(yep)${endColour}"
+
+		else
+			echo -e "${redColour}(nope)${endColour}\n"
+			echo -e "${blueColour}[*]${endColour}${greyColour}Instalando herramienta...${endColour}${purpleColour}$program${endColour}"
+		    #apt-get install golang-go -y > /dev/null 2>&1
+		    #apt-get install sublist3r -y > /dev/null 2>&1
+		    #installaquatone > /dev/null 2>&1
+		    #installassetfinder > /dev/null 2>&1
+            #installsubfinder >  /dev/null 2>&1
+            #apt-get install amass > /dev/null 2>&1
+            #installfindomain  > /dev/null 2>&1
+            #installhttprobe  > /dev/null 2>&1
+            
+		fi; sleep 1
+
+
+	done
+
+}
+
+function startrecon(){
+	clear
+    echo -e "${blueColour}[*]${endColour}Iniciando ${yellowColour}PICHULA GOLDEN${endColour} R3C0N" 
+	mkdir $Domain
+	cd $Domain
+
+	#sublist3r
+#   python3 /home/cobalthackerone/tools/Sublist3r/sublist3r.py -b  -d $Domain -v -o domains.txt
+ #   sed -i 's/<BR>/\n/g' domains.txt  | tee -a domains.txt
+  #  sleep 3
+
+	#assetfinder 
+    assetfinder --subs-only $Domain | tee -a domains.txt
+	sleep 3
+
+	#subfinder
+
+    subfinder -d $Domain | tee -a domains.txt
+
+	sleep 3
+
+	#amass
+
+    amass enum --passive -d $Domain | tee -a domains.txt 
+
+    sleep 3
+
+	#certspotter
+
+	curl -s https://certspotter.com/api/v0/certs\?domain\=$Domain | jq '.[].dns_names[]' | sed 's/\"//g' | sed 's/\*\.//g' | sort -u | grep $Domain | tee -a domains.txt
+	sleep 3
+
+	#crtsh
+
+	curl -s https://crt.sh/?q\=%.$Domain\&output\=json | jq -r '.[].name_value' | sed 's/\*\.//g' | sort -u | tee -a domains.txt
+	sleep 3
+
+    #findomain
+
+    findomain -t $Domain -u domainsfin.txt
+    sleep 3
+
+    cat domainsfin.txt domains.txt | tee -a final.txt 
+    sleep 3
+    
+
+    #github_subdomains
+
+    python /home/cobalthackerone/tools/github-subdomains/github-subdomains.py  -t 5cfd4c275447e9161aac58bbb4be18255a63eab1 -d $Domain | tee -a final.txt
+
+	sleep 3
+    #gobusterdns
+
+
+     gobuster  dns  -d $Domain  -w /home/cobalthackerone/tools/wordlist/subdomains_small.txt -t 50 -q --wildcard  | awk '{print $2}' | tee -a final.txt
+
+
+     #massdns
+
+#	bash /home/cobalthackerone/tools/subdomains/subdomains.sh  /home/cobalthackerone/tools/subdomains/subdomains.txt  $Domain  "$(pwd)/$Domain.txt"
+
+#	sleep 3
+
+#	massdns -r /home/cobalthackerone/tools/massdns/lists/resolvers.txt -q -t A -o S -w "result-online_massdns.txt" "$Domain.txt"
+
+ #	sleep 3
+
+
+#	awk -F ". " '{print $1}' "result-online_massdns.txt" | tee -a massdns.txt
+ #
+#	sleep 2
+
+#	rm  $Domain.txt 
+	echo -e "${grayColour}$Eliminando subdominios duplicados....${endColour}"
+    #removing duplicate entries
+
+    sort -u final.txt -o dominios.txt
+    rm final.txt
+    rm domains.txt
+    rm domainsfin.txt
+    clear
+    sleep 3
+    
+	echo -e "${grayColour}Comprobando Puertos 80 y 443...${endColour}"
+	cat dominios.txt | httprobe -c 50  | tee -a alive.txt
+	sleep 3
+
+
+#	echo -e  "${grayColour}wayback-urls${endColour}"
+#		mkdir wayback	
+#		cat alive.txt | waybackurls > $(pwd)/wayback/waybackurls.txt
+#		cat $(pwd)/wayback/waybackurls.txt  | sort -u | unfurl --unique keys > $(pwd)/wayback/paramlist.txt
+#		[ -s $(pwd)/wayback/way-data/paramlist.txt ] && echo "Wordlist saved to $(pwd)/wayback/way-dataparamlist.txt"
+#
+#		cat $(pwd)/wayback/waybackurls.txt  | sort -u | grep -P "\w+\.js(\?|$)" | sort -u > $(pwd)/wayback/jsurls.txt
+#		[ -s $(pwd)/wayback/way-data/jsurls.txt ] && echo "JS Urls saved to $(pwd)/wayback/way-datajsurls.txt"
+#
+#		cat $(pwd)/wayback/waybackurls.txt  | sort -u | grep -P "\w+\.php(\?|$) | sort -u " > $(pwd)/wayback/phpurls.txt
+#		[ -s $(pwd)/wayback/way-data/phpurls.txt ] && echo "PHP Urls saved to $(pwd)/wayback/way-dataphpurls.txt"
+#
+#		cat $(pwd)/wayback/waybackurls.txt  | sort -u | grep -P "\w+\.aspx(\?|$) | sort -u " > $(pwd)/wayback/aspxurls.txt
+#		[ -s $(pwd)/wayback/way-data/aspxurls.txt ] && echo "ASP Urls saved to $(pwd)/wayback/way-dataaspxurls.txt"
+#
+#		cat $(pwd)/wayback/waybackurls.txt  | sort -u | grep -P "\w+\.jsp(\?|$) | sort -u " > $(pwd)/wayback/jspurls.txt
+#		[ -s $(pwd)/wayback/way-data/jspurls.txt ] && echo "JSP Urls saved to $(pwd)/wayback/way-datajspurls.txt"
+#
+#               cat $(pwd)/wayback/waybackurls.txt  | sort -u | grep -P "\w+\.html(\?|$) | sort -u " > $(pwd)/wayback/htmlurls.txt
+#              [ -s $(pwd)/wayback/way-data/htmlurls.txt ] && echo "html Urls saved to $(pwd)/wayback/way-datahtmlurls.txt"
+
+
+	#aquatone
+
+	#cat alive.txt | aquatone -ports xlarge  -out  $(pwd)/screenshotaquatone 
+
+	#altdns
+
+	#altdns -i  alive.txt  -o data_out -w /root/bounty/wordlist/altdns/words2.txt -r -s altdns_results.txt 
+
+}
+
+
+#Funciones principales
+
+if [ "$(id -u)" == "1000" ]; then
+	declare -i parameter_counter=0; while getopts ":h:d:" arg; do
+		case $arg in
+			d) Domain=$OPTARG; let parameter_counter+=1 ;;
+			h) Help;;
+		esac
+	done
+
+	if [ $parameter_counter -ne 1 ]; then
+		Help
+	else
+		dependencies
+		startrecon
+		tput cnorm
+	fi
+
+else
+	echo -e "\n${redColour}[*]No soy root${endColour}\n"
+
+fi
+

@@ -1,0 +1,3 @@
+#!/bin/bash
+for i in $(cat /home/cobalthackerone/tools/subdomains/medium_subdomains.txt); do echo $i.$1;
+done;
